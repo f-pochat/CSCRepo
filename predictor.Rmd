@@ -1,0 +1,99 @@
+---
+title: "Predictor Charles Schwab Challenge 2021"
+author: ""
+date: ""
+output:  
+  prettydoc::html_pretty:
+    theme: lumen
+    highlight: github
+    runtime: shiny
+---
+
+# How does it works?
+
+It takes stats about the 2020 Charles Schwab Challenge and generates a model with the Strokes Gained so an aproxiamte position is given.
+
+## SG: Total
+
+Simply compares a player's score to the field average. For example, a player will gain three strokes on the field if he shoots 69 on a day when the field averages 72. A player who shoots 74 on that day loses two strokes to the field. And here it is divided in SG: Putting, SG: Off-the-tee, SG: Aproach, SG: Around-the-green
+
+# Dataset
+
+```{r, echo = FALSE}
+dataset <- read.csv("~/Programacion/R/CharlesSchwab2020/CSC2020Data.csv")
+knitr::kable(dataset[1:67,1:9], format="html")
+```
+
+# Analisis
+
+Se analizan las variables mas importantes
+
+```{r,echo = FALSE,message = FALSE}
+data <- dataset[,-2]
+data <- data[,-2]
+
+for(i in 1:7){
+  data[, i] <- as.numeric(data[, i])
+}
+
+library(corrplot)
+corrplot(cor(data), method= 'color')
+```
+
+# Predictor
+
+
+
+
+```{r,echo=FALSE,}
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("sgputt", "SG: Putting", value = 0,step = 0.1),
+      numericInput("sgApp", "SG: Approach", value = 0,step = 0.1),
+      numericInput("sgOtt", "SG: Off-The-Tee", value = 0,step = 0.1),
+      numericInput("sgArg", "SG: Around-The-Green", value = 0,step = 0.1),
+    ),
+    mainPanel(
+      textOutput("position"),
+      tags$head(tags$style("#position{color: black;
+                                 font-size: 40px;
+                                 font-style: bold;
+                                 padding: 80px;
+                              
+                                 }"
+                         )
+              )
+
+    )
+  )
+)
+
+server <- function(input, output, session) {
+     output$position = renderText({paste("Expected Position: ",predictor(input$sgputt,input$sgApp,input$sgOtt,input$sgArg))})
+}
+
+shinyApp(ui = ui, server = server)
+
+Pos <- data$POSITION
+SGTotal <- data$SG.T
+SGPutting <- data$SG.P
+SGAPR <- data$SG.APR
+SGOTT <- data$SG.OTT
+SGARG <- data$SG.ARG
+model <- lm(SGTotal ~ SGPutting + SGAPR + SGOTT + SGARG)
+model2 <- lm(Pos ~ SGTotal)
+
+predictor <- function(putting, approach, offthetee, aroundgreen){
+  sgtot <- predict(model, newdata = data.frame(SGPutting = putting, SGAPR = approach, SGOTT = offthetee, SGARG = aroundgreen))
+  position <- round(predict(model2, newdata = data.frame(SGTotal = sgtot)))
+  if(position < 0){
+    return("Too Good")
+  }else if(position > 80){
+    return("CUT")
+  }else{
+    return(position)
+  }
+}
+
+```
